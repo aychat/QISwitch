@@ -41,6 +41,7 @@ int main()
 	m.Par<double>("pulse_strength") = 10;
 	m.Par() << "REAL max_energy";
 	m.Par<double>("max_energy") = 32;
+	//test
 
 	//Specification of the system Hamiltonian
 	QI_Matrix H_self(&m);  // Eigen (field-free) Hamiltonian
