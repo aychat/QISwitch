@@ -104,7 +104,7 @@ void GetRelaxationMatrices(QI_Model& m, std::vector<QI_Matrix*>& L_matrices)
 	{
 		{
 			QI_Matrix* L_tmp = new QI_Matrix(&m);
-			L_tmp->Schema() = L_schema;
+	 		L_tmp->Schema() = L_schema;
 			L_tmp->Subscriptions() = m.Pub()("QUANTUM_FRICTION") || m.Pub()("VIBRATIONAL_PROPERTIES") || m.Pub()("default") || m.Pub()("temp");
 			L_tmp->Alg(!m("?v0")) = $$("std::IdentityMatrix");
 			L_tmp->Alg(m("?v0")) = $$("harmonic::fromFormula");

@@ -41,7 +41,6 @@ int main()
 	m.Par<double>("pulse_strength") = 10;
 	m.Par() << "REAL max_energy";
 	m.Par<double>("max_energy") = 32;
-	//test
 
 	//Specification of the system Hamiltonian
 	QI_Matrix H_self(&m);  // Eigen (field-free) Hamiltonian
@@ -118,7 +117,7 @@ void InitModel(QI_Model& m)
 	//***************************************
 	// specifying names for degrees of freedom (naming conventions are arbitrary, just avoid using ".", " " and ",")
 	QI_DOF& d = m.DOF();
-	d << "?e" << "?v0" << "?v1";
+	d << "?e" << "?v";
 	
 	//***************************************
 	// specifying the structure of Configurational (Hilbert) space 
@@ -127,13 +126,17 @@ void InitModel(QI_Model& m)
 	//aka("label") is optional and should be used only to introduce a label for compound block)
 	// + and * here imply direct product and direct sum
 	m.Space() =  
-		(d("?e", 1, "#E[e1]")*d("?v0", 1, "#E[e1_v0]")*d("?v1", 1, "#E[e1_v1]")).aka("#G")  //ground state
+		(d("?e", 1, "#E[ePrG]")*d("?v", 10, "#E[ePrG_v]")).aka("#PrG")  //Pr (active) ground state
 		+
-		(d("?e", 1, "#E[e2]")*d("?v0", 10, "#E[e2_v0]")*d("?v1", 10, "#E[e2_v1]")).aka("#E") //excited state 
+		(d("?e", 1, "#E[ePrE]")*d("?v", 10, "#E[ePrE_v]")).aka("#PrE")  //Pr (active) excited state
 		+
-		d("?e", 1, "#E[e3]")*d("?v0", 10, "#E[e3_v0]")*d("?v1", 10, "#E[e3_v1]") //final state
+		(d("?e", 1, "#E[ePfrG]")*d("?v", 10, "#E[ePfrG_v]")).aka("#PfrG")  //Pfr (inactive) ground state
 		+
-		d("?e,?v0,?v1",1,"#D"); //drain state to emulate the population leakage out of the 3 electronic level subsystem
+		(d("?e", 1, "#E[ePfrE]")*d("?v", 10, "#E[ePfrE_v]")).aka("#PfrE")  //Pfr (inactive) excited state
+		+
+		d("?e,?v",1,"#B_Pr")   //bridge state that links Pr to Pfr
+		+
+		d("?e,?v",1,"#B_Pfr"); //bridge state that links Pfr to Pr
 
 	//It is highly recommended to ensure that the total number of levels is chosen _e_v_e_n_. 
 	//In the case of odd numbers program might
@@ -146,80 +149,68 @@ void InitModel(QI_Model& m)
 	m.Pub() << "MOLECULAR_ENERGIES_AND_GEOMETRY"
 		<< "ELECTRONIC_ENERGIES"
 		<< "VIBRATIONAL_PROPERTIES"
-		<< "ELECTRONIC_COUPLINGS"
-		<< "VIBRATIONAL_COUPLINGS"
 		<< "OPTICAL_EXCITATIONS"
 		<< "QUANTUM_FRICTION"
-		<< "DRAIN_DECAY";
+		<< "BRIDGES";
 
 	// Now we can introduce the model parameters as follows:
 	m.Par().DefaultPub() <<= "MOLECULAR_ENERGIES_AND_GEOMETRY";
 	m.Par().DefaultPub() << "ELECTRONIC_ENERGIES";
 	m.Par()
-		<< m("#E[e1]") //scope to which the following parameter applies, may be any logical expression composed of block labels introduced earlier (see below for examples)
-		<< "std::multiplier			E[e1]"
-		<< m("#E[e2]")
-		<< "std::multiplier			E[e2]"
-		<< m("#E[e3]")
-		<< "std::multiplier			E[e3]";
+		<< m("#E[ePrG]") //scope to which the following parameter applies, may be any logical expression composed of block labels introduced earlier (see below for examples)
+		<< "std::multiplier			E[ePrG]"
+		<< m("#E[ePrE]")
+		<< "std::multiplier			E[ePrE]"
+		<< m("#E[ePfrG]")
+		<< "std::multiplier			E[ePfrG]"
+		<< m("#E[ePfrE]")
+		<< "std::multiplier			E[ePfrE]"	;
 	m.Par().DefaultPub() >> "ELECTRONIC_ENERGIES";
 
 	m.Par().DefaultPub() << "VIBRATIONAL_PROPERTIES";
 	m.Par() 
-		<< m("?v0") 
-			<< "harmonic::mass			mass0"
-			<< "harmonic::frequency		w0"
-			<< m("#E[e1_v0]")
-			<< "harmonic::coord_eq		x_eq0[e1]"
-			<< m("#E[e2_v0]")
-			<< "harmonic::coord_eq		x_eq0[e2]"
-			<< m("#E[e3_v0]")
-			<< "harmonic::coord_eq		x_eq0[e3]"
-		<< m("?v1")
-			<< "harmonic::mass			mass1"
-			<< "harmonic::frequency		w1"
-			<< m("#E[e1_v1]")
-			<< "harmonic::coord_eq		x_eq1[e1]"
-			<< m("#E[e2_v1]")
-			<< "harmonic::coord_eq		x_eq1[e2]"
-			<< m("#E[e3_v1]")
-			<< "harmonic::coord_eq		x_eq1[e3]";
+		<< m("?v")
+			<< "harmonic::mass			mass"
+			<< "harmonic::frequency		w"
+			<< m("#E[ePrG_v]")
+			<< "harmonic::coord_eq		x_eq[ePrG]"
+			<< m("#E[ePrE_v]")
+			<< "harmonic::coord_eq		x_eq[ePrE]"
+			<< m("#E[ePfrG_v]")
+			<< "harmonic::coord_eq		x_eq[ePfrG]"
+		    << m("#E[ePfrE_v]")
+			<< "harmonic::coord_eq		x_eq[ePfrE]"
+
 	m.Par().DefaultPub() >> "VIBRATIONAL_PROPERTIES";
-
-	m.Par().DefaultPub() <<= "VIBRATIONAL_COUPLINGS";
-	m.Par()
-		<< m("#E[e2]")
-		<< "std::multiplier e2_v12"
-		<< m("#E[e3]")
-		<< "std::multiplier e3_v12";
-	m.Par().DefaultPub() >> ("VIBRATIONAL_COUPLINGS");
-
-	m.Par().DefaultPub() <<= "ELECTRONIC_COUPLINGS";
-	m.Par()
-		<< (m("#E[e2]") || m("#E[e3]")) // example of compound scope
-		<< "std::multiplier e23";
-	m.Par().DefaultPub() >> ("ELECTRONIC_COUPLINGS");
 
 	m.Par().DefaultPub() <<= "OPTICAL_EXCITATIONS";
 	m.Par()
-		<< (m("#E[e1]") || m("#E[e2]")) // example of compound scope
+		<< (m("#E[ePrG]") || m("#E[ePrE]")) // example of compound scope
+		<< "std::multiplier field_strength";
+	m.Par()
+		<< (m("#E[ePfrG]") || m("#E[ePfrE]")) // example of compound scope
 		<< "std::multiplier field_strength";
 	m.Par().DefaultPub() >> ("OPTICAL_EXCITATIONS");
 
 	m.Par().DefaultPub() <<= "QUANTUM_FRICTION";
 	m.Par() << (!m("?e")) << "harmonic::bondarian_friction_formula bondarian_velocity_dependence"; //applies for all vibrational degrees of freedom
 	m.Par()
-		<< (m("?v0") || m("?v1")) 
+		<< m("?v")
 			<< "REAL friction_sign"
 			<< "harmonic::formula friction_formula"
-		<< m("?v0") << "std::multiplier	v0_friction"
-		<< m("?v1") << "std::multiplier	v1_friction";
+		    << "std::multiplier	v_friction";
 	m.Par().DefaultPub() >> "QUANTUM_FRICTION";
 
-	m.Par().DefaultPub() <<= "DRAIN_DECAY";
-		m.Par() << (m("#D") || !m("#D")) // i.e apply it to everything
-			<< "std::multiplier	drain_decay";
-	m.Par().DefaultPub() >> "DRAIN_DECAY";
+	m.Par().DefaultPub() <<= "BRIDGES";
+		m.Par() << (m("#PrE") || m("#B_Pr"))
+			<< "std::multiplier	decay_PrE_B_Pr"
+		    << (m("#PfrE") || m("#B_Pfr"))
+			<< "std::multiplier	decay_PfrE_B_Pfr"
+			<< (m("#PfrG") || m("#B_Pr"))
+			<< "std::multiplier	decay_B_Pr_PfrG"
+		    << (m("#PrG") || m("#B_Pfr"))
+			<< "std::multiplier	decay_B_Pfr_PrG";
+	m.Par().DefaultPub() >> "BRIDGES";
 };
 
 void InitParameter(QI_Model& m)
@@ -237,34 +228,28 @@ void InitParameter(QI_Model& m)
 
 	m.Par<double>("std_constant.hbar") = 1.; //!!! rescaling the units here
 
-	pc("E[e1]") = 0.001; // equivalent to m.Par<std::complex<double> >("E[el]") = 0.;
-	pc("E[e2]") = 20;
-	pc("E[e3]") = 14;
+	pc("E[ePrG]") = 0.001; // equivalent to m.Par<std::complex<double> >("E[el]") = 0.;
+	pc("E[ePrE]") = 100.00;
+	pc("E[ePfrG]") = 5.00;
+	pc("E[ePfrE]") = 95.00;
 
-	pd("mass0") = 1;
-	pd("w0") = 1;
-	pd("x_eq0[e1]") = 0.001;
-	pd("x_eq0[e2]") = 1;
-	pd("x_eq0[e3]") = 2;
-
-	pd("mass1") = 1;
-	pd("w1") = 1;
-	pd("x_eq1[e1]") = 0.001;
-	pd("x_eq1[e2]") = 1;
-	pd("x_eq1[e3]") = 2;
-
-	pc("e2_v12") = 0.5;
-	pc("e3_v12") = -0.5;
-
-	pc("e23") = 1;
+	pd("mass") = 1;
+	pd("w") = 1;
+	pd("x_eq[ePrG]") = 0.001;
+	pd("x_eq[ePrE]") = 1;
+	pd("x_eq[ePfrG]") = 0.05;
+	pd("x_eq[ePfrE]") = 0.95;
 
 	pc("field_strength") = 1.;
 
 	m.Par<std::string>("bondarian_velocity_dependence") = "rect(kappa_bdr*hbar/2,20.0,p_bdr)*(((p_bdr-kappa_bdr*hbar/2)*(p_bdr-kappa_bdr*hbar/2))^0.25)";
 	m.Par<std::string>("friction_formula")= "Bondarian(2,par(friction_sign))";
-	pc("v0_friction") = 0.001;
-	pc("v1_friction") = 0.001;
+	pc("v_friction") = 0.001;
 
-	pc("drain_decay") = 0.0005;
+	pc("decay_PrE_B_Pr") = 0.0005; // to be chosen
+	pc("decay_PfrE_B_Pfr") = 0.0005; // to be chosen
+	pc("decay_B_Pr_PfrG") = 0.0005; // to be chosen
+	pc("decay_B_Pfr_PrG") = 0.0005; // to be chosen
+
 };
 
